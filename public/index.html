@@ -1,0 +1,512 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Spotify ++ </title>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <style type="text/css">
+
+    body {
+      overflow: hidden;
+      background-color: #dfdfdf;
+    }
+
+      .c {
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+      }
+      .text-overflow {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        width: 500px;
+      }
+
+      #selected {
+        font-size: 20px;
+        border-radius: 4px;
+        background-color: #333333;
+        color: white;
+        margin: auto;
+        width: 10%;
+        padding: 10px;
+        -ms-user-select: none;
+        user-select: none;
+      }
+      .dropdownItem {
+        display: none;
+        width: 10%;
+        padding: 6px;
+        color: black;
+        margin: auto;
+        background-color: #949494;
+
+        -ms-user-select: none;
+        user-select: none;
+
+      }
+      .dropdownItem:hover {
+        opacity: 0.7;
+
+      }
+
+      .card {
+        box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+        max-width: 40%;
+        margin: auto;
+        text-align: center;
+        font-family: arial;
+      }
+      #image {
+        max-width: 20%;
+        margin-left: 10px;
+        margin-right: 20%;
+        padding: 10px;
+      }
+
+      .row {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+      }
+      .col {
+        display: flex;
+        flex-direction: column;
+      }
+
+
+      .song {
+        position: relative;
+        padding-left: 30px;
+        padding-right: 40px;
+        padding-top: 20px;
+        padding-bottom: 15px;
+        background-color: #1f1d3b;
+        color: white;
+        width: 170%;
+        margin-left: 233%;
+        border: 1px solid #2d286e;
+      }
+
+      .center{
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      .box{
+        position: absolute;
+        right: 10px;
+        width: 20px;
+        height: 20px;
+        box-sizing: border-box;
+        border-style: solid;
+        border-width: 10px 0px 10px 20px;
+        border-color: transparent transparent transparent steelblue;
+        transition: all 100ms ease-in-out;
+      }
+
+      .pause{
+        border-style: double;
+        border-width:0px 0px 0px 20px;
+      }
+
+
+      .header {
+        margin-top: 20px;
+        margin-bottom: 20px;
+        font-size: 20px;
+      }
+
+      #stats {
+        position: absolute;
+        left: 15%;
+        top: 40%;
+      }
+
+      #list {
+        position: absolute;
+        top: 40%;
+        left: 25%;
+      }
+
+    </style>
+  </head>
+
+  <body>
+    <div class="c">
+      <div id="login">
+        <h1>Spotify ++</h1>
+      </div>
+        
+      <div class="card">
+        <div class="row">
+          <div id="image">
+            <img id="profilePicture">
+          </div>
+          <div class="col">
+          <h1 id="username"></h1>
+          <div id="email"></div>
+          <div id="followers"></div>
+          </div>
+        </div>
+      </div>
+      <div id="playlists">
+        <div id="selected"></div>
+        <div id="dropdown">
+        </div>
+        <div class="col">
+        <a id="fetch">Download songs as zip file</a>
+        <a id="down">Download songs for playback</a>
+        </div>
+      </div>
+      <div class="row" id="music">
+        <div id="stats">
+          <div id="totalSongs"></div>
+          <div id="artist"></div>
+          <div id="avgpop"></div>
+          <div id="rec"></div>
+          <div id="extrarec">
+          </div>
+
+        </div>
+        <div id="list"></div>
+        
+      </div>
+    </div>
+
+
+    <script>
+      let cookies = document.cookie;
+      cookies = cookies.split("; ")
+
+      const headers = {
+        Authorization: "Bearer " + decodeURIComponent(cookies[0].split("access_token=")[1]).replaceAll("\"", ""),
+      };
+
+      function getData() {
+
+
+
+      let favArtist;
+      fetch("https://api.spotify.com/v1/me/playlists", { method: "GET", headers })
+        .then((res) => res.json())
+        .then((body) => {
+          let i = body.items.map((i) => i.id);
+
+          Promise.all(
+            i.map((a) =>
+              fetch(`https://api.spotify.com/v1/playlists/${a}/tracks`, {
+                method: "GET",
+                headers,
+              })
+                .then((res) => res.json())
+                .then((body) => body.items)
+            )
+          ).then((output) => {
+            let artists = [];
+            let artistsId = [];
+            let artistsSongs = {};
+            let songs = [];
+
+            output = reshape(output);
+            let avgPop = 0;
+            for (let i = 0; i < output.length; i++) {
+              let track = output[i].track;
+              let data = output[i];
+              let t = track.artists;
+
+              songs.push(track.name);
+              avgPop += track.popularity;
+
+              for (let j = 0; j < t.length; j++) {
+                if (artists.indexOf(t[j].name) == -1) {
+                  artists.push(t[j].name);
+                  artistsId.push(t[j].id);
+                  artistsSongs[t[j].name] = 1;
+                } else {
+                  artistsSongs[t[j].name]++;
+                }
+              }
+            }
+            avgPop /= songs.length;
+
+            songs = [...new Set(songs)];
+
+            let favArtists = getMax(artistsSongs);
+            let favIds = [];
+
+            for (let i = 0; i < favArtists.length; i++) {
+              favIds.push(artistsId[indexOf(artists, favArtists[i])]);
+            }
+
+            fetch("https://api.spotify.com/v1/me", {
+              method: "GET",
+              headers,
+            })
+              .then((res) => res.json())
+              .then((body) => {
+                let country = body.country;
+
+                let recSongs = [];
+
+                Promise.all(
+                  favIds.map((a) =>
+                    fetch(
+                      `https://api.spotify.com/v1/artists/${a}/top-tracks?market=${country}`,
+                      {
+                        method: "GET",
+                        headers,
+                      }
+                    ).then((res) => res.json()).then(body => {
+                      return {id: a, body: body}
+                    })
+                  )
+                ).then((a) => {
+                  let body = a.map(x => x.body)
+                  let ids = a.map(x => x.id)
+                  for (let c = 0; c < body.length; c++) {
+                    let tmprecSongs = body[c].tracks.map((i) => i.name);
+
+                    tmprecSongs = tmprecSongs.filter((x) => indexOf(songs, x) == -1);
+                    recSongs.push(tmprecSongs);
+                  }
+                  
+                  document.getElementById("avgpop").innerText = "Average Popularity: " + avgPop.toFixed(2);
+
+                  document.getElementById("artist").innerText = "Favorite Artist: " + favArtists[0]
+
+                  document.getElementById("totalSongs").innerText = "Total Songs: " + output.length;
+
+                  for(let q = 0; q < recSongs.length; q++){
+                    let header = document.createElement("div");
+                    header.className = "header"
+                    header.innerText = "Because you like " + favArtists[q]
+                      document.getElementById("rec").appendChild(header);
+                    for(let w = 0; w < recSongs[q].length; w++){
+                      let tempdiv = document.createElement("div")
+                      tempdiv.className = "recItem";
+
+                      tempdiv.innerText = recSongs[q][w];
+
+                      document.getElementById("rec").appendChild(tempdiv);
+                    }
+                  }
+
+
+                });
+              });
+          });
+        });
+      }
+
+      function reshape(arr) {
+        let size = arr.length * arr[0].length;
+        let oned = new Array(size);
+        let counter = 0;
+        for (let i = 0; i < arr.length; i++) {
+          for (let j = 0; j < arr[i].length; j++) {
+            oned[counter] = arr[i][j];
+            counter++;
+          }
+        }
+        return oned;
+      }
+      function indexOf(arr, val) {
+        for (let i = 0; i < arr.length; i++) {
+          if (arr[i] == val) {
+            return i;
+          }
+        }
+        return -1;
+      }
+      function getMax(json) {
+        let max = 0;
+        let maxVal;
+        let max2 = 0;
+        let max2Val;
+        let max3 = 0;
+        let max3Val;
+
+        for (let i in json) {
+          if (json[i] > max) {
+            max3 = max2;
+            max3Val = max2Val;
+            max2 = max;
+            max2Val = maxVal;
+            max = json[i];
+            maxVal = i;
+          } else if (json[i] > max2) {
+            max3 = max2;
+            max3Val = max2Val;
+            max2 = json[i];
+            max2Val = i;
+          } else if (json[i] > max3) {
+            max3 = json[i];
+            max3Val = i;
+          }
+        }
+        return [maxVal, max2Val, max3Val];
+      }
+
+    </script>
+    <script>
+      let audio;
+      let currentSong;
+      let playing = 0;
+      
+
+     
+
+      function getPlaylists() {
+        return fetch("https://api.spotify.com/v1/me/playlists", {
+          method: "GET",
+          headers,
+        })
+          .then((res) => res.json())
+          .then((body) => {
+            return body;
+          });
+      }
+
+      function getSongs(id) {
+        fetch(`https://api.spotify.com/v1/playlists/${id}/tracks`, { method: "GET", headers})
+          .then(res => res.json())
+          .then(body => {
+
+            let songs = body.items.map(i => i.track.name)
+            let authors = body.items.map(i => i.track.artists[0].name)
+
+            let list = document.getElementById("list")
+              list.remove()
+              list = document.createElement("div")
+              list.id="list";
+              document.getElementById("music").appendChild(list)
+
+            for(let i = 0; i < songs.length; i++){
+
+            
+              let div = document.createElement("div")
+              div.innerText = songs[i]
+
+              let btn = document.createElement("div")
+              btn.className="box play";
+
+              btn.addEventListener("click", function(e) {
+                let a = document.querySelectorAll(".box.play")
+                
+                if(currentSong == songs[i]){
+                  e.target.classList.toggle("pause")
+                  if(playing == 1){
+                    playing = 2;
+                    audio.pause()
+                  } else if(playing == 2){
+                    playing = 1;
+                    audio.play()
+                  }
+                } else {
+                  for(let f = 0; f < a.length; f++){
+                    a[f].className="box play"
+                  }
+                  e.target.classList.toggle('pause');
+                  if(audio) {
+                    audio.pause()
+                    audio.currentTime = 0;
+                  }
+                  let tmp = songs[i] + " " + authors[i]
+                  let name = tmp.replace(/[^a-z0-9]/gi, "").toLowerCase();
+                  audio = new Audio("http://localhost:3000/" + name + ".mp3")
+                  audio.load()
+                  audio.play()
+                  playing = 1;
+                  currentSong = songs[i]
+                }
+              })
+
+
+              let flex = document.createElement('div')
+              flex.className = "row song"
+              flex.appendChild(div)
+              flex.appendChild(btn)
+
+              document.getElementById("list").appendChild(flex)
+
+            }
+
+          })
+      }
+
+      function getInfo() {
+        fetch("https://api.spotify.com/v1/me", {method: "GET", headers}).then(res => res.json())
+              .then(body => {
+                if(body.images[0]){
+                  document.getElementById("profilePicture").src = body.images[0].url;
+                } else {
+                  document.getElementById("profilePicture").src = "default.png";
+                }
+                document.getElementById("username").innerText = body.display_name;
+                document.getElementById("email").innerText = body.email;
+                document.getElementById("followers").innerText = "Followers: " + body.followers.total;
+              })
+
+        return getPlaylists()
+      }
+      let parentDiv = document.getElementById("dropdown")
+      let selected = document.getElementById("selected")
+      let fetchBtn = document.getElementById("fetch")
+      let downBtn = document.getElementById("down")
+      
+      let links;
+      
+      getInfo().then(s => {
+
+        let names = "";
+
+        let a = s.items.map(i => i.name);
+        let b = s.items.map(i => i.id);
+        links = b;
+
+        for(let i = 0; i < a.length; i++){
+          let newItem = document.createElement("div");
+          newItem.className = "dropdownItem"
+          newItem.innerText = a[i];
+          newItem.disabled=true
+          parentDiv.appendChild(newItem)
+        }
+        selected.innerText = a[0];
+        getData()
+        fetchBtn.href = `http://localhost:8000/download?id=${links[0]}&zip=true`;
+        downBtn.href = `http://localhost:8000/download?id=${links[0]}&zip=false`;
+        getSongs(links[0])
+      })
+
+
+      selected.addEventListener("click", function() {
+
+        let playlists = document.querySelectorAll(".dropdownItem")
+
+        let newDisplay = playlists[0].style.display == "block" ? "none": "block";
+
+        for(let i= 0; i < playlists.length; i++){
+          playlists[i].style.display = newDisplay;
+          playlists[i].disabled = false;
+
+          playlists[i].addEventListener("click", function() {
+            selected.innerText = playlists[i].innerText;
+            let id = links[i]
+            getSongs(id);
+            fetchBtn.href = `http://localhost:8000/download?id=${id}&zip=true`;
+            downBtn.href = `http://localhost:8000/download?id=${links[0]}&zip=false`;
+            for(let i =0; i < playlists.length; i++){
+              playlists[i].style.display = "none";
+            }
+          })
+        }
+      });
+
+
+
+    </script>
+
+</html>
