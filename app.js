@@ -8,10 +8,10 @@ const getData = require("./utils/getData.js");
 const saveSongs = require("./utils/saveSongs.js");
 const path = require("path");
 require("./app2.js");
-
+require("dotenv").config;
 let redirect_uri = "http://localhost:8000/callback";
-let client_id = "bdcb9c2b07ea4726b966365e68c373b9";
-let client_secret = "fb1fb5f87b6f4e89b2185a688cd15e87";
+let client_id = process.env.CLIENT_ID;
+let client_secret = process.env.CLIENT_SECRET;
 
 app.use(express.static(path.join(__dirname, "downloads")));
 
